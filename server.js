@@ -1,12 +1,13 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
+import bookingRouter from "./routes/booking.js"
+import userRouter from "./routes/auth.js"
 
 dotenv.config()
 
 
-//const authRoutes = require('./routes/auth');
-//const bookingsRoutes = require('./routes/bookings');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,8 +18,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-//app.use('/auth', authRoutes);
-//app.use('/bookings', bookingsRoutes);
+app.use('/auth', userRouter);
+app.use('/bookings', bookingRouter);
 
 // Health check
 app.get('/', (req, res) => {

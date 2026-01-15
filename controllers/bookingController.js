@@ -367,10 +367,135 @@ export const getBookings = async (req,res) => {
 
 export const updateBooking = async (res,req) => {
     try {
-        const {bookingId} = req.query
-        const userId = req.user.userId
-        const { carName, days, rentPerDay, status } = req.body;
-    } catch (error) {
-        
+
+     // Check if booking exists and belongs to user
+    const bookingCheck = await pool.query(
+      'SELECT user_id FROM bookings WHERE id = $1',
+      [bookingId]
+    );
+
+    if (bookingCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'booking not found'
+      });
     }
+
+    if (bookingCheck.rows[0].user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'booking does not belong to user'
+      });
+    }
+
+    // Update status only
+    if (status && !carName && !days && !rentPerDay) {
+      if (!['booked', 'completed', 'cancelled'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'invalid inputs'
+        });
+      }
+
+      await pool.query(
+        'UPDATE bookings SET status = $1 WHERE id = $2',
+        [status, bookingId]
+      );
+    } 
+    // Update booking details
+    else {
+      if (!carName || !days || !rentPerDay) {
+        return res.status(400).json({
+          success: false,
+          error: 'invalid inputs'
+        });
+      }
+
+      if (days >= 365 || days <= 0 || rentPerDay > 2000 || rentPerDay <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'invalid inputs'
+        });
+      }
+
+      await pool.query(
+        'UPDATE bookings SET car_name = $1, days = $2, rent_per_day = $3 WHERE id = $4',
+        [carName, days, rentPerDay, bookingId]
+      );
+    }
+
+    // Fetch updated booking
+    const result = await pool.query(
+      `SELECT id, car_name, days, rent_per_day, status,
+              (days * rent_per_day) as total_cost
+       FROM bookings WHERE id = $1`,
+      [bookingId]
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Booking updated successfully',
+        booking: {
+          id: result.rows[0].id,
+          car_name: result.rows[0].car_name,
+          days: result.rows[0].days,
+          rent_per_day: parseFloat(result.rows[0].rent_per_day),
+          status: result.rows[0].status,
+          totalCost: parseFloat(result.rows[0].total_cost)
+        }
+      }
+    });
+
+
+    } catch (error) {
+        return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+     });
+    }
+}
+
+
+export const deleteBooking = async (req,res) => {
+   try {
+     //delete booking by bookingId 
+ 
+     const {bookingId} = req.query
+     const {userId} = req.user.userId
+     // Check if booking exists and belongs to user
+     const bookingCheck = await pool.query(
+       'SELECT user_id FROM bookings WHERE id = $1',
+       [bookingId]
+     );
+ 
+     if (bookingCheck.rows.length === 0) {
+       return res.status(404).json({
+         success: false,
+         error: 'booking not found'
+       });
+     }
+ 
+     if (bookingCheck.rows[0].user_id !== userId) {
+       return res.status(403).json({
+         success: false,
+         error: 'booking does not belong to user'
+       });
+     }
+ 
+     // Delete booking
+     await pool.query('DELETE FROM bookings WHERE id = $1', [bookingId]);
+ 
+     res.status(200).json({
+       success: true,
+       data: {
+         message: 'Booking deleted successfully'
+       }
+     });
+   } catch (error) {
+     return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+   }
 }
