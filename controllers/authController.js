@@ -155,12 +155,36 @@ export const signIn = async (res,req) => {
 
         if (!ValidatePassword) {
             return res.status(401).json({
-                
+                success:false,
+                error:"Password is incorrect"
             })
             
         }
 
+        //but if the password matches we will send the token to  the browser
+        const token = jwt.sign(
+            {
+                userId:user.id,
+                username:user.username
+            },
+            process.env.JWT_SECRET,
+            {expiresIn:process.env.JWT_EXPIRES_IN||'24h'}
+        )
+
+        //token ko return krenge response mai 
+        res.status(200).json({
+            success:true,
+            data:{
+                message:"login successfull",
+                token:token
+            }
+        })
+
     } catch (error) {
-        
+        console.log("login failed")
+        res.status(500).json({
+            success:false,
+            error:"server error"
+        })
     }
 }
