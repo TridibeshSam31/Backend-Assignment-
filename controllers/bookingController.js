@@ -253,6 +253,124 @@ export const createBookingForLoginCustomer = async (res,req) => {
 
 //get bookings
 
-export const getBookings = async () => {
-    const {}
+export const getBookings = async (req,res) => {
+   try {
+     const {bookingId ,summary} = req.query()
+     const {userId} = req.user.userId
+ 
+     //if summary is requested
+     if (summary === "true") {
+         const result = await pool.query(
+            `SELECT 
+           u.id as "userId",
+           u.username,
+           COUNT(b.id) FILTER (WHERE b.status IN ('booked', 'completed')) as "totalBookings",
+           COALESCE(SUM(b.days * b.rent_per_day) FILTER (WHERE b.status IN ('booked', 'completed')), 0) as "totalAmountSpent"
+          FROM users u
+          LEFT JOIN bookings b ON u.id = b.user_id
+          WHERE u.id = $1
+          GROUP BY u.id, u.username`,
+         [userId]
+ 
+         )
+         
+     
+ 
+ 
+      return res.status(200).json({
+         success: true,
+         data: {
+           userId: result.rows[0].userId,
+           username: result.rows[0].username,
+           totalBookings: parseInt(result.rows[0].totalBookings),
+           totalAmountSpent: parseFloat(result.rows[0].totalAmountSpent)
+         }
+      })
+ 
+     }
+ 
+ 
+     //if specific booking is requested
+     if (bookingId) {
+         const result = await pool.query(
+           `SELECT id, car_name, days, rent_per_day, status, 
+             (days * rent_per_day) as total_cost
+          FROM bookings 
+          WHERE id = $1 AND user_id = $2`,
+         [bookingId, userId]
+         )
+     
+ 
+      if (result.rows.length === 0) {
+         return res.status(404).json({
+           success: false,
+           error: 'bookingId not found'
+         });
+       }
+ 
+        return res.status(200).json({
+         success: true,
+         data: [{
+           id: result.rows[0].id,
+           car_name: result.rows[0].car_name,
+           days: result.rows[0].days,
+           rent_per_day: parseFloat(result.rows[0].rent_per_day),
+           status: result.rows[0].status,
+           totalCost: parseFloat(result.rows[0].total_cost)
+         }]
+       });
+ 
+     }
+ 
+    //get all bookings by user
+     const result = await pool.query(
+       `SELECT id, car_name, days, rent_per_day, status,
+               (days * rent_per_day) as total_cost
+        FROM bookings 
+        WHERE user_id = $1
+        ORDER BY created_at DESC`,
+       [userId]
+     );
+ 
+     const bookings = result.rows.map(row => ({
+       id: row.id,
+       car_name: row.car_name,
+       days: row.days,
+       rent_per_day: parseFloat(row.rent_per_day),
+       status: row.status,
+       totalCost: parseFloat(row.total_cost)
+     }));
+ 
+     res.status(200).json({
+       success: true,
+       data: bookings
+     });
+   } catch (error) {
+     return res.status(500).json({
+        success:false,
+        error:"Internal server Error"
+     })
+   }
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+export const updateBooking = async (res,req) => {
+    try {
+        const {bookingId} = req.query
+        const userId = req.user.userId
+        const { carName, days, rentPerDay, status } = req.body;
+    } catch (error) {
+        
+    }
 }
